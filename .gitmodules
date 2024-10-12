@@ -1,0 +1,3 @@
+[submodule "parser/luau"]
+	path = parser/luau
+	url = https://github.com/luau-lang/luau
