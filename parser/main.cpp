@@ -4,8 +4,10 @@
 #include "Luau/Parser.h"
 #include "luau/CLI/FileUtils.h"
 #include "Luau/ToString.h"
-
+#include <chrono>
 #include <iostream>
+
+using namespace std::chrono;
 
 static int assertionHandler(const char *expr, const char *file, int line, const char *function)
 {
@@ -35,6 +37,8 @@ int main(int argc, char **argv)
     options.captureComments = true;
     options.allowDeclarationSyntax = true;
 
+    auto startTime = std::chrono::high_resolution_clock::now();
+
     Luau::ParseResult parseResult = Luau::Parser::parse(
         source.data(),
         source.size(),
@@ -42,18 +46,32 @@ int main(int argc, char **argv)
         allocator,
         options);
 
+    auto endTime = std::chrono::high_resolution_clock::now();
+
+    auto duration = duration_cast<microseconds>(endTime - startTime);
+
+    fprintf(stderr, "ParseStatus/DoneTime=%ldμs\n", duration.count());
+
     if (parseResult.errors.size() > 0)
     {
-        fprintf(stderr, "ParseDone/ERROR:\n");
+        fprintf(stderr, "ParseStatus/Error\nBlock:\n");
         for (const Luau::ParseError &error : parseResult.errors)
         {
             fprintf(stderr, "  %s - %s\n", toString(error.getLocation()).c_str(), error.getMessage().c_str());
         }
-        fprintf(stderr, "\n");
+        fprintf(stderr, "EndBlock\n");
         return 3;
     }
 
     fprintf(stderr, "ParseDone/OK\n");
 
-    fprintf(stderr, "%s", Luau::toJson(parseResult.root, parseResult.commentLocations).c_str());
+    bool noPrintAst = std::getenv("NO_PRINT_AST") != nullptr && strcmp(std::getenv("NO_PRINT_AST"), "1") == 0;
+
+    if (!noPrintAst)
+    {
+        fprintf(stderr, "ParseStatus/RawAst=%s\n", Luau::toJson(parseResult.root).c_str());
+        fprintf(stderr, "ParseStatus/RawAstWithComments=%s\n", Luau::toJson(parseResult.root, parseResult.commentLocations).c_str());
+    }
+
+    return 0;
 }
